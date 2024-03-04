@@ -56,7 +56,7 @@ def main_worker(config: Dict[str, Any], args: argparse.Namespace):
     ##############################
     # Datasets loading
     is_normals = config["model"]["output_dim"] > 1
-    save_dir = os.path.join(args.base_path, config["data"]["data_root"])
+    save_dir = config["data"]["data_root"]
     assert hasattr(
         custom_dataset, config["data"]["train_dataset"]
     ), f"{config['data']['train_dataset']} not a custom dataset"
@@ -110,7 +110,11 @@ def main_worker(config: Dict[str, Any], args: argparse.Namespace):
     ########### MODEL ############
     ##############################
     # Build model
-    model = IDisc.build(config).to(device)
+    model = IDisc.build(config)
+    # Load pretrained checkpoints if possible
+    if args.model_file is not None:
+        model.load_pretrained(args.model_file)
+    model = model.to(device)
     if args.distributed:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = DistributedDataParallel(
@@ -263,6 +267,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("--config-file", type=str, required=True)
+    parser.add_argument("--model-file", type=str, default=None, required=False) # Finetune
     parser.add_argument("--master-port", type=str, required=False)
     parser.add_argument("--distributed", action="store_true")
     parser.add_argument("--base-path", default=os.environ.get("TMPDIR", ""))
